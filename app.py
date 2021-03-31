@@ -2,8 +2,9 @@ import datetime
 import database
 from typing import List, Tuple
 
-# Movie = (title, release_timestamp, watched)
-Movie = Tuple[str, int, int]
+# Movie = (title, release_timestamp)
+Movie = Tuple[str, int]
+
 
 menu = """Please select one of the following options:
 1) Add new movie
@@ -29,32 +30,48 @@ database.create_tables()
 
 def prompt_add_movie() -> (str, int):
     title = input("Movie title: ")
-    release_date = input("Release date (YYYY-mm-dd): ")
-    parsed_date = datetime.datetime.strptime(release_date, "%Y-%m-%d")
-    # NOTE: Windows won't parse anything before the Unix epoch.
-    timestamp = parsed_date.timestamp()
+    release_date = prompt_release_date()
 
-    return (title, timestamp)
+    return (title, release_date)
 
 
 def print_movie_list(heading: str, movies: List[Movie]):
     print(f"--- {heading} MOVIES ---")
-    for movie in movies:
-        movie_date = datetime.datetime.fromtimestamp(movie[1])
-        human_date = movie_date.strftime("%Y %b %d")
-        print(f"*) {movie[0]} (released: {human_date})")
+    for (title, release_timestamp) in movies:
+        movie_date = datetime.datetime.fromtimestamp(release_timestamp)
+        human_readable_date = movie_date.strftime("%Y %b %d")
+        print(f"*) {title} (released: {human_readable_date})")
     print("-----------------------\n")
 
 
-def prompt_watch_movie() -> str:
+def print_users_watched_movies(username: str, movies: List[Movie]):
+    print(f"--- {username}'S WATCHED MOVIES ---")
+    for (title, release_timestamp) in movies:
+        movie_date = datetime.datetime.fromtimestamp(release_timestamp)
+        human_readable_date = movie_date.strftime("%Y %b %d")
+        print(f"*) {title} (released: {human_readable_date}")
+    print("-----------------------\n")
+
+
+def prompt_watch_movie() -> (str, str):
+    username = input("Username: ")
     title = input("Enter title of movie watched: ")
 
-    return title
+    return (username, title)
 
 
-def print_watched(title: str):
-    (title, _, watched) = database.get_movie(title)
-    print(f"You've now watched \"{title}\" {watched} times.")
+def prompt_release_date() -> (int):
+    release_date = input("Release date (YYYY-mm-dd): ")
+
+    parsed_date = datetime.datetime.strptime(release_date, "%Y-%m-%d")
+    timestamp = parsed_date.timestamp()
+
+    return timestamp
+
+
+def print_watched(username: str, title: str):
+    (watcher_name, title, watched_amount) = database.get_watched_movie(username, title)
+    print(f"{watcher_name} has now watched \"{title}\" {watched_amount} times.")
 
 
 while (user_input := input(menu)) != EXIT:
@@ -71,13 +88,25 @@ while (user_input := input(menu)) != EXIT:
         print_movie_list("ALL", movies)
 
     elif user_input == WATCH_MOVIE:
-        title = prompt_watch_movie()
-        database.watch_movie(title)
-        print_watched(title)
+        (username, title) = prompt_watch_movie()
+
+        if not database.get_movie(title):
+            release_date = prompt_release_date()
+            database.add_movie(title, release_date)
+
+        database.watch_movie(username, title)
+        print_watched(username, title)
 
     elif user_input == VIEW_WATCHED:
-        movies = database.get_watched_movies()
-        print_movie_list("WATCHED", movies)
+        username = input("Username: ")
+        users_movies = database.get_watched_movies(username)
+
+        movies = []
+        for (_, title, _) in users_movies:
+            movies.append(database.get_movie(title))
+
+        heading = username.upper() + "'S WATCHED"
+        print_movie_list(heading, movies)
 
     else:
         print("Invalid input, please try again!")
