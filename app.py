@@ -56,6 +56,7 @@ def print_watched(title: str):
     (title, _, watched) = database.get_movie(title)
     print(f"You've now watched \"{title}\" {watched} times.")
 
+
 while (user_input := input(menu)) != EXIT:
     if user_input == ADD_MOVIE:
         (title, release_date) = prompt_add_movie()
